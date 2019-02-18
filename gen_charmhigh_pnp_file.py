@@ -14,6 +14,8 @@ parser.add_argument('csv', metavar='POS.csv',
     help="footprint position CSV file as exported from KiCad (7 columns: "
          "part ref, part name, footprint, x-pos, y-pos, rotation, layer), "
          "columns separated by comma (','), first line is ignored")
+parser.add_argument('-v', '--verbose', action='store_const', const=True,
+    default=False, help="print debug information to check validity of files")
 parser.add_argument('-o', '--output', metavar='OUT.dpv',
     help="specify the output filename (default is same base name as CSV file)")
 parser.add_argument('-s', '--stack', metavar='PART:NUM', action='append',
@@ -33,6 +35,8 @@ parser.add_argument('--stackfile', metavar='STACK.csv',
          "note that parts will be placed in the order they appear in this file")
 parser.add_argument('-m', '--mark', metavar='X,Y', action='append',
     help="specify the coordinates of a calibration mark")
+parser.add_argument('-l', '--layer', metavar='{top,bottom}',
+    help="specify whether to place the parts of the top or bottom layer")
 args = parser.parse_args()
 
 def parse_stack_num(stack_str):
@@ -107,10 +111,21 @@ if args.mark:
             raise ValueError(f"option '--mark {m}': invalid syntax")
         calib_marks.append((xpos, ypos))
 
+# check whether a layer was specified:
+layer = None
+if args.layer:
+    if args.layer == 't' or args.layer == 'top':
+        layer = 'top'
+    elif args.layer == 'b' or args.layer == 'bottom':
+        layer = 'bottom'
+    else:
+        raise ValueError(f"option '--layer {args.layer}': invalid value")
+
 ################################################################################
 # PARSE CSV FILE:
 #
 parts = []
+missing_parts = []
 with open(args.csv) as inf:
     next(inf) # skip header line
     for line in inf:
@@ -118,17 +133,14 @@ with open(args.csv) as inf:
         part_num = cells[0]
         part_name = cells[1]
         footprint = cells[2]
-        layer = cells[6]
+        pos = (float(cells[3]), float(cells[4]))
+        orient = float(cells[5])
+        part_layer = cells[6]
 
-        # convert coordinates:
-        if layer == 'top':
-            pos = (float(cells[3]), 100 + float(cells[4]))
-            orient = float(cells[5]) + 90
-        elif layer == 'bottom':
-            pos = (float(cells[3]), -float(cells[4]))
-            orient = float(cells[5]) # TODO figure out rotation for bottom parts
-        else:
+        if part_layer != 'top' and part_layer != 'bottom':
             raise ValueError('Column 7 must contain either "top" or "bottom"')
+        if layer == None:
+            layer = part_layer
 
         # unambiguously identify capacitors, inductances and resistors:
         units = { 'C': 'F', 'L': 'H', 'R': 'Ohm' }
@@ -137,17 +149,58 @@ with open(args.csv) as inf:
                 part_name += units[part_num[0]]
 
         # add part (except DNP parts), check whether the part is in the stack:
-        if not part_name.startswith('DNP'):
-            if part_name not in machine_stack:
-                raise ValueError(f"part {part_name} is not in machine stack")
-            _, _, _, rotation = machine_stack[part_name]
-            orient = (orient + rotation) % 360
-            if orient > 180:
-                orient -= 360
-            idx = list(machine_stack.keys()).index(part_name)
-            parts.append((part_num, part_name, pos, orient, layer, idx))
+        if part_layer == layer and not part_name.startswith('DNP'):
+            if part_name in machine_stack:
+                _, _, _, rotation = machine_stack[part_name]
+                idx = list(machine_stack.keys()).index(part_name)
+                parts.append((part_num, part_name, pos, orient + rotation, idx))
+            elif part_name not in missing_parts:
+                print(f"Warning: part {part_name} is not in machine stack")
+                missing_parts.append(part_name)
 
-parts.sort(key=lambda tup: tup[5]) # same order as in 'machine_stack'
+parts.sort(key=lambda tup: tup[4]) # same order as in 'machine_stack'
+
+################################################################################
+# TRANSFORM COORDINATES ACCORDING TO BOARD ORIENTATION:
+#
+
+# check which board corner is the origin (based on sign of part coordinates):
+x_pos = all(part[2][0] >= 0. for part in parts)
+x_neg = all(part[2][0] <= 0. for part in parts)
+y_pos = all(part[2][1] >= 0. for part in parts)
+y_neg = all(part[2][1] <= 0. for part in parts)
+if (not x_pos and not x_neg) or (not y_pos and not y_neg):
+    raise ValueError("The origin of the board must be in a corner, "
+            "i.e. all parts must be on the same side of the x axis and y axis")
+
+if args.verbose:
+    print("The auxiliary axis origin is in the "
+          f"{'lower' if y_pos else 'upper'} {'left' if x_pos else 'right'} "
+          "corner of the board.")
+
+# convert all part coordinates such that board origin is in lower left corner:
+parts_conv = []
+for part_num, part_name, pos, orient, _ in parts:
+    px, py = pos
+    if x_pos:
+        pos = (px, py) if y_pos else (-py, px)
+        orient += 0 if y_pos else 90
+    else:
+        pos = (py, -px) if y_pos else (-px, -py)
+        orient += 270 if y_pos else 180
+
+    # when placing parts on the bottom layer, the x and y axis are inverted:
+    if layer == 'bottom':
+        pos = (pos[1], pos[0])
+        orient += 0 # TODO figure out how to rotate parts on the bottom layer
+
+    while orient > 180:
+        orient -= 360
+    parts_conv.append((part_num, part_name, pos, orient))
+
+# verify that everything has been successfully transformed:
+assert all(part[2][0] >= 0. for part in parts_conv), "negative x coordinate"
+assert all(part[2][1] >= 0. for part in parts_conv), "negative y coordinate"
 
 ################################################################################
 # WRITE MACHINE FILE:
@@ -176,8 +229,8 @@ with open(outpath, 'w') as outf:
 
     outf.write('Table,No.,ID,PHead,STNo.,DeltX,DeltY,Angle,Height,Skip,Speed,'
                'Explain,Note\r\n\r\n')
-    for num, part in enumerate(parts):
-        pnum, pname, pos, orient, layer, _ = part
+    for num, part in enumerate(parts_conv):
+        pnum, pname, pos, orient = part
         stack_num, _, head, _ = machine_stack[pname]
         outf.write(f"EComponent,{num},{num+1},{head},{stack_num},{pos[0]:.2f},"
                    f"{pos[1]:.2f},{orient:.1f},0.5,6,0,{pnum},{pname}\r\n\r\n")
