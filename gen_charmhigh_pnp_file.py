@@ -36,7 +36,8 @@ parser.add_argument('--stackfile', metavar='STACK.csv',
 parser.add_argument('-m', '--mark', metavar='X,Y', action='append',
     help="specify the coordinates of a calibration mark")
 parser.add_argument('-l', '--layer', metavar='{top,bottom}',
-    help="specify whether to place the parts of the top or bottom layer")
+    help="specify whether the parts of the top or bottom layer shall be placed"
+         " (auto-detected from the first part in the position file by default)")
 args = parser.parse_args()
 
 def parse_stack_num(stack_str):
@@ -128,8 +129,11 @@ parts = []
 missing_parts = []
 with open(args.csv) as inf:
     next(inf) # skip header line
-    for line in inf:
+    for lnum, line in enumerate(inf, 2):
         cells = [ c.strip().strip('"').strip() for c in line.split(',') ]
+        if len(cells) != 7:
+            raise ValueError(f"{inf.name},{lnum}: 7 columns are expected")
+
         part_num = cells[0]
         part_name = cells[1]
         footprint = cells[2]
@@ -137,16 +141,23 @@ with open(args.csv) as inf:
         orient = float(cells[5])
         part_layer = cells[6]
 
-        if part_layer != 'top' and part_layer != 'bottom':
-            raise ValueError('Column 7 must contain either "top" or "bottom"')
-        if layer == None:
-            layer = part_layer
+        # check whether the part number is valid:
+        num_mobj = re.match('^([A-Z]+)([0-9]+)$', part_num)
+        if num_mobj is None:
+            raise ValueError(f"{inf.name},{lnum}: invalid part number")
 
         # unambiguously identify capacitors, inductances and resistors:
         units = { 'C': 'F', 'L': 'H', 'R': 'Ohm' }
-        if part_num[0] in units:
+        if num_mobj.group(1) in units:
             if re.match('^[0-9]+[GMkmunpf]?[0-9]*$', part_name):
                 part_name += units[part_num[0]]
+
+        # check whether this part belongs to the top or bottom layer:
+        if part_layer != 'top' and part_layer != 'bottom':
+            raise ValueError(f"{inf.name},{lnum}: layer (column 7) must be "
+                              "either 'top' or 'bottom'")
+        if layer == None:
+            layer = part_layer
 
         # add part (except DNP parts), check whether the part is in the stack:
         if part_layer == layer and not part_name.startswith('DNP'):
