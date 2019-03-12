@@ -35,7 +35,7 @@ parser.add_argument('--stackfile', metavar='STACK.csv',
          "note that parts will be placed in the order they appear in this file")
 parser.add_argument('-m', '--mark', metavar='X,Y', action='append',
     help="specify the coordinates of a calibration mark")
-parser.add_argument('-l', '--layer', metavar='{top,bottom}',
+parser.add_argument('-l', '--layer', metavar='{top|bottom}',
     help="specify whether the parts of the top or bottom layer shall be placed"
          " (auto-detected from the first part in the position file by default)")
 args = parser.parse_args()
@@ -174,7 +174,7 @@ parts.sort(key=lambda tup: tup[4]) # same order as in 'machine_stack'
 
 # inform the user about parts in the machine stack which are not used:
 for p in set(machine_stack) - set([ p[1] for p in parts ]):
-    print(f"\x1b[34mInfo: part {p} of the machine stack is not used\x1b[0m")
+    print(f"\x1b[34mInfo: part {p} in the machine stack is not used\x1b[0m")
 
 ################################################################################
 # TRANSFORM COORDINATES ACCORDING TO BOARD ORIENTATION:
