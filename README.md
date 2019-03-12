@@ -7,7 +7,13 @@ of the Charmhigh Pick-and-Place Machine
 * Load the machine with the required parts.
   You might want to create a CSV file which lists all the parts in the machine,
   with up to 5 columns (first two columns are required, others are optional):
-  `part name | stack number | feed | head number | rotation offset`.
+  ```
+  part name | stack number | feed | head number | rotation offset
+  ```
+  For instance:
+  ```
+  100nF,1,2,1,90
+  ```
 
 * Export the position file from KiCAD by opening Pcbnew, selecting
   `File -> Fabrication Outputs -> Footprint Position (.pos) File`,
@@ -18,7 +24,7 @@ of the Charmhigh Pick-and-Place Machine
 
 * Use the python script `gen_charmhigh_pnp_file.py` to convert the position
   file to a DPV file used by the machine.
-  Copy this file to USB stick.
+  Copy this file to a USB stick.
 
 * Apply solder paste to a PCB and place it in the machine.
   Be careful to place the corner of the board
@@ -33,10 +39,11 @@ of the Charmhigh Pick-and-Place Machine
   Select the desired DPV file and then click on `Update` to import the file.
 
 * In the main menu of the control program,
-  click on `P` and then select the imported DPV file.
-  Click on `Edit` and then on calibrate in order to calibrate the position
-  of the PCB based on the fiducials or other marks.
-  If the camera image does not show up, close the application and restart it.
+  click on `Run` and then select the imported DPV file.
+  Click on `Edit` and then on `PCB calibrate` in order to calibrate the
+  position of the PCB based on fiducials or other marks.
+  If the camera image does not show up, close the application
+  and restart it without turning of the machine.
 
-* From the main menu click on `P`, again select the DPV file
+* From the main menu click on `Run`, again select the DPV file
   and then click on `Load`.
