@@ -23,17 +23,20 @@ of the Charmhigh Pick-and-Place Machine
   choosing an output directory and then clicking `Save Report File`.
   Don't forget to place the auxiliary axis origin
   in one of the corners of the PCB before generating the position file.
-  This will later be used as the board origin when placing the parts.
+  That corner will later be used as the board origin when placing the parts.
 
 * Use the python script `gen_charmhigh_pnp_file.py` to convert the position
   file to a DPV file used by the machine, for instance by executing:
   ```
-  gen_charmhigh_pnp_file.py --stackfile stack.csv -o out.dpv pos.csv)
+  gen_charmhigh_pnp_file.py --stackfile stack.csv -o out.dpv pos.csv
   ```
   where `stack.csv` is the name of the CSV file created in the first step,
   `pos.csv` is the position file exported from KiCAD
   and `out.dpv` selects a name for the machine file which shall be created.
-  Copy this file to a USB stick.
+  The option `-m` can be used to specify the coordinates of fiducials
+  or other marks on the board
+  which are later used to calibrate the position of the PCB in the machine.
+  Copy the generated `*.dpv` file to a USB stick.
 
 * Apply solder paste to a PCB and place it in the machine.
   Be careful to place the corner of the board
