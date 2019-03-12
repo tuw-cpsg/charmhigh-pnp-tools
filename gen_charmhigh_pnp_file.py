@@ -67,17 +67,18 @@ machine_stack = collections.OrderedDict()
 if args.stackfile:
     with open(args.stackfile) as sf:
         for lino, line in enumerate(sf):
-            cols = [ col.strip() for col in line.strip().split(',') ]
-            if len(cols) < 2:
-                raise ValueError(f"{sf.name}:{lino} too few columns (min 2)")
-            try:
-                stack_num = parse_stack_num(cols[1])
-                feed = parse_feed(cols[2]) if len(cols) >= 3 else 4
-                head = parse_head(cols[3]) if len(cols) >= 4 else 1
-                rotation = parse_rotation(cols[4]) if len(cols) >= 5 else 0
-            except ValueError as verr:
-                raise ValueError(f"{sf.name}:{lino} {str(verr)}")
-            machine_stack[cols[0]] = [ stack_num, feed, head, rotation ]
+            if line.strip()[0] != '#':
+                cols = [ col.strip() for col in line.strip().split(',') ]
+                if len(cols) < 2:
+                    raise ValueError(f"{sf.name}:{lino} to few columns")
+                try:
+                    stack_num = parse_stack_num(cols[1])
+                    feed = parse_feed(cols[2]) if len(cols) >= 3 else 4
+                    head = parse_head(cols[3]) if len(cols) >= 4 else 1
+                    rotation = parse_rotation(cols[4]) if len(cols) >= 5 else 0
+                except ValueError as verr:
+                    raise ValueError(f"{sf.name}:{lino} {str(verr)}")
+                machine_stack[cols[0]] = [ stack_num, feed, head, rotation ]
 
 machine_stack_options = [
     (args.stack,    'stack',    parse_stack_num, 0),
