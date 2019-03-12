@@ -8,7 +8,7 @@ of the Charmhigh Pick-and-Place Machine
   You might want to create a CSV file which lists all the parts in the machine,
   with up to 5 columns (first two columns are required, others are optional):
   ```
-  part name | stack number | feed | head number | rotation offset
+  part name | stack number | feed distance | head number | rotation offset
   ```
   For instance:
   ```
@@ -46,7 +46,8 @@ of the Charmhigh Pick-and-Place Machine
 * Start the machine by toggling the power switch,
   then wait a few seconds and start the Charmhigh control program.
 
-* Connect the USB stick.
+* Connect the USB stick (in order for the USB stick to be recognized
+  it must be connected **after** starting the Charmhigh control program).
   In the Charmhigh control program, click on `Files`, then on `Import`.
   Select the desired DPV file and then click on `Update` to import the file.
 
@@ -54,8 +55,12 @@ of the Charmhigh Pick-and-Place Machine
   click on `Run` and then select the imported DPV file.
   Click on `Edit` and then on `PCB calibrate` in order to calibrate the
   position of the PCB based on fiducials or other marks.
-  If the camera image does not show up, close the application
-  and restart it without turning of the machine.
+  If the camera image does not show up, close the Charmhigh control program
+  and restart it **without turning of the machine**.
 
-* From the main menu click on `Run`, again select the DPV file
+* From the main menu click on `Run`, again select the desired DPV file
   and then click on `Load`.
+  The machine is now ready to start placing parts.
+  By repeatedly clicking `Step` the machine slowly steps through the process.
+  If you are very confident, you can click `Run`
+  to have the machine quickly place all parts without interruption.
