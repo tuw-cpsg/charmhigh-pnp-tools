@@ -12,8 +12,11 @@ of the Charmhigh Pick-and-Place Machine
   ```
   For instance:
   ```
-  100nF,1,2,1,90
+  100nF,1,2
+  4u7F,18
+  TPS65400-Q1,27,8,2,90
   ```
+  Parts will be placed in the order in which they appear in this file.
 
 * Export the position file from KiCAD by opening Pcbnew, selecting
   `File -> Fabrication Outputs -> Footprint Position (.pos) File`,
@@ -23,7 +26,13 @@ of the Charmhigh Pick-and-Place Machine
   This will later be used as the board origin when placing the parts.
 
 * Use the python script `gen_charmhigh_pnp_file.py` to convert the position
-  file to a DPV file used by the machine.
+  file to a DPV file used by the machine, for instance by executing:
+  ```
+  gen_charmhigh_pnp_file.py --stackfile stack.csv -o out.dpv pos.csv)
+  ```
+  where `stack.csv` is the name of the CSV file created in the first step,
+  `pos.csv` is the position file exported from KiCAD
+  and `out.dpv` selects a name for the machine file which shall be created.
   Copy this file to a USB stick.
 
 * Apply solder paste to a PCB and place it in the machine.
