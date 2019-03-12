@@ -41,9 +41,9 @@ parser.add_argument('-l', '--layer', metavar='{top,bottom}',
 args = parser.parse_args()
 
 def parse_stack_num(stack_str):
-    if stack_str in [ str(val) for val in range(1, 30) ]:
+    if stack_str in [ str(val) for val in range(1, 61) ]:
         return int(stack_str)
-    raise ValueError("stack number must within [1,29]")
+    raise ValueError("stack number must within [1,60]")
 
 def parse_feed(feed_str):
     if feed_str in [ '2', '4', '8', '12', '16', '24' ]:
@@ -166,10 +166,15 @@ with open(args.csv) as inf:
                 idx = list(machine_stack.keys()).index(part_name)
                 parts.append((part_num, part_name, pos, orient + rotation, idx))
             elif part_name not in missing_parts:
-                print(f"Warning: part {part_name} is not in machine stack")
+                print(f"\x1b[33mWarning: part {part_name} "
+                      f"is not in machine stack, skipping\x1b[0m")
                 missing_parts.append(part_name)
 
 parts.sort(key=lambda tup: tup[4]) # same order as in 'machine_stack'
+
+# inform the user about parts in the machine stack which are not used:
+for p in set(machine_stack) - set([ p[1] for p in parts ]):
+    print(f"\x1b[34mInfo: part {p} of the machine stack is not used\x1b[0m")
 
 ################################################################################
 # TRANSFORM COORDINATES ACCORDING TO BOARD ORIENTATION:
