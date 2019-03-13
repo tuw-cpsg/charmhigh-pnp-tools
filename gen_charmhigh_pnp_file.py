@@ -40,9 +40,23 @@ parser.add_argument('-l', '--layer', metavar='{top|bottom}',
          " (auto-detected from the first part in the position file by default)")
 args = parser.parse_args()
 
+def error_exit(msg, f = None, lno = None):
+    location = (f"in {f}" if f else "") + (f", line {lno}" if lno else "")
+    print(f"\x1b[31m\x1b[1mERROR:\x1b[0m\x1b[31m {location}: {msg}\x1b[0m")
+    sys.exit(1)
+
+# build the machine stack, first from the stack file, then from the options:
+machine_stack = collections.OrderedDict()
+
 def parse_stack_num(stack_str):
-    if stack_str in [ str(val) for val in range(1, 61) ]:
-        return int(stack_str)
+    if stack_str in [ str(val) for val in range(1, 29) ]:
+        snum = int(stack_str)
+        for pname in machine_stack:
+            if snum == machine_stack[pname][0]:
+                raise ValueError(f"stack {snum} already contains part {pname}")
+        return snum
+    if stack_str == '60':
+        return 60
     raise ValueError("stack number must within [1,60]")
 
 def parse_feed(feed_str):
@@ -61,25 +75,24 @@ def parse_rotation(rot_str):
     except ValueError:
         raise ValueError("rotation offset must be float value")
 
-# build the machine stack, first from the stack file, then from the options:
-machine_stack = collections.OrderedDict()
-
+# if a stack file has been given, then this is read first:
 if args.stackfile:
     with open(args.stackfile) as sf:
-        for lino, line in enumerate(sf):
+        for lno, line in enumerate(sf):
             if line.strip()[0] != '#':
                 cols = [ col.strip() for col in line.strip().split(',') ]
                 if len(cols) < 2:
-                    raise ValueError(f"{sf.name}:{lino} to few columns")
+                    error_exit("too few columns (minimum 2)", sf.name, lno)
                 try:
                     stack_num = parse_stack_num(cols[1])
                     feed = parse_feed(cols[2]) if len(cols) >= 3 else 4
                     head = parse_head(cols[3]) if len(cols) >= 4 else 1
                     rotation = parse_rotation(cols[4]) if len(cols) >= 5 else 0
                 except ValueError as verr:
-                    raise ValueError(f"{sf.name}:{lino} {str(verr)}")
+                    error_exit(str(verr), sf.name, lno)
                 machine_stack[cols[0]] = [ stack_num, feed, head, rotation ]
 
+# next, the relevant options are used to complete the stack:
 machine_stack_options = [
     (args.stack,    'stack',    parse_stack_num, 0),
     (args.feed,     'feed',     parse_feed,      1),
@@ -91,13 +104,13 @@ for opt, opts, func, idx in machine_stack_options:
         for optarg in opt:
             fields = optarg.split(':')
             if len(fields) != 2:
-                raise ValueError(f"option '--{opts} {optarg}': invalid syntax")
+                error_exit(f"option '--{opts} {optarg}': invalid syntax")
             if fields[0] not in machine_stack:
                 machine_stack[fields[0]] = [ None, 4, 1, 0 ]
             try:
                 machine_stack[fields[0]][idx] = func(optarg)
             except ValueError as verr:
-                raise ValueError(f"option '--{opts} {optarg}': {str(verr)}")
+                error_exit(f"option '--{opts} {optarg}': {str(verr)}")
 
 # parse calibration marks:
 calib_marks = []
@@ -105,12 +118,12 @@ if args.mark:
     for m in args.mark:
         coords = m.split(',')
         if len(coords) != 2:
-            raise ValueError(f"option '--mark {m}': invalid syntax")
+            error_exit(f"option '--mark {m}': invalid syntax")
         try:
             xpos = float(coords[0])
             ypos = float(coords[1])
         except ValueError:
-            raise ValueError(f"option '--mark {m}': invalid syntax")
+            error_exit(f"option '--mark {m}': invalid syntax")
         calib_marks.append((xpos, ypos))
 
 # check whether a layer was specified:
@@ -121,10 +134,10 @@ if args.layer:
     elif args.layer == 'b' or args.layer == 'bottom':
         layer = 'bottom'
     else:
-        raise ValueError(f"option '--layer {args.layer}': invalid value")
+        error_exit(f"option '--layer {args.layer}': invalid value")
 
 ################################################################################
-# PARSE CSV FILE:
+# PARSE KICAD POSITION FILE:
 #
 parts = []
 missing_parts = []
@@ -133,7 +146,7 @@ with open(args.csv) as inf:
     for lnum, line in enumerate(inf, 2):
         cells = [ c.strip().strip('"').strip() for c in line.split(',') ]
         if len(cells) != 7:
-            raise ValueError(f"{inf.name},{lnum}: 7 columns are expected")
+            error_exit("7 columns are expected", inf.name, lnum)
 
         part_num = cells[0]
         part_name = cells[1]
@@ -145,7 +158,7 @@ with open(args.csv) as inf:
         # check whether the part number is valid:
         num_mobj = re.match('^([A-Z]+)([0-9]+)$', part_num)
         if num_mobj is None:
-            raise ValueError(f"{inf.name},{lnum}: invalid part number")
+            error_exit("invalid part number", inf.name, lnum)
 
         # unambiguously identify capacitors, inductances and resistors:
         units = { 'C': 'F', 'L': 'H', 'R': 'Ohm' }
@@ -155,8 +168,8 @@ with open(args.csv) as inf:
 
         # check whether this part belongs to the top or bottom layer:
         if part_layer != 'top' and part_layer != 'bottom':
-            raise ValueError(f"{inf.name},{lnum}: layer (column 7) must be "
-                              "either 'top' or 'bottom'")
+            error_exit("layer (column 7) must be either 'top' or 'bottom'",
+                       inf.name, lnum)
         if layer == None:
             layer = part_layer
 
@@ -187,8 +200,8 @@ x_neg = all(part[2][0] <= 0. for part in parts)
 y_pos = all(part[2][1] >= 0. for part in parts)
 y_neg = all(part[2][1] <= 0. for part in parts)
 if (not x_pos and not x_neg) or (not y_pos and not y_neg):
-    raise ValueError("The origin of the board must be in a corner, "
-            "i.e. all parts must be on the same side of the x axis and y axis")
+    error_exit("The origin of the board must be in a corner, i.e. all parts"
+               "must be on the same side of the x axis and y axis", args.csv)
 
 if args.verbose:
     print("The auxiliary axis origin is in the "
@@ -209,7 +222,15 @@ for part_num, part_name, pos, orient, _ in parts:
     # when placing parts on the bottom layer, the x and y axis are inverted:
     if layer == 'bottom':
         pos = (pos[1], pos[0])
-        orient += 0 # TODO figure out how to rotate parts on the bottom layer
+        # KiCAD flips bottom parts along x-axis, so when flipping x and y axis,
+        # the rotation must be inverted and 90 degrees added to compensate:
+        orient = 90 - orient
+
+    # take into account the orientation of the tapes in the machine:
+    # (in KiCAD components are orientated as if tape was moving upwards along y
+    # axis, but in the machine the tapes are moving left to right along x axis,
+    # so all components must be rotated by another 90 degrees to compensate)
+    orient += 90
 
     while orient > 180:
         orient -= 360
