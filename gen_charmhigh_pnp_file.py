@@ -48,15 +48,13 @@ def error_exit(msg, f = None, lno = None):
 # build the machine stack, first from the stack file, then from the options:
 machine_stack = collections.OrderedDict()
 
-def parse_stack_num(stack_str):
-    if stack_str in [ str(val) for val in range(1, 29) ]:
-        snum = int(stack_str)
+def parse_stack_num(stk_str):
+    if stk_str in [ str(i) for i in list(range(1, 29)) + list(range(60, 99)) ]:
+        snum = int(stk_str)
         for pname in machine_stack:
             if snum == machine_stack[pname][0]:
                 raise ValueError(f"stack {snum} already contains part {pname}")
         return snum
-    if stack_str == '60':
-        return 60
     raise ValueError("stack number must within [1,60]")
 
 def parse_feed(feed_str):
@@ -232,6 +230,9 @@ for part_num, part_name, pos, orient, _ in parts:
     # so all components must be rotated by another 90 degrees to compensate)
     orient += 90
 
+    # machine requires angles to be within (-180,180] degrees:
+    while orient <= -180:
+        orient += 360
     while orient > 180:
         orient -= 360
     parts_conv.append((part_num, part_name, pos, orient))
@@ -283,7 +284,8 @@ with open(outpath, 'w') as outf:
 
     outf.write('Table,No.,ID,offsetX,offsetY,Note\r\n\r\n')
     for idx, calib in enumerate(calib_marks):
-        outf.write(f"CalibPoint,{idx},{idx+1},{calib[0]},{calib[1]},Mark1\r\n")
+        outf.write(f"CalibPoint,{idx},{idx+1},{calib[0]},{calib[1]},"
+                   f"Mark{idx+1}\r\n")
     outf.write('\r\n')
 
     outf.write('Table,No.,DeltX,DeltY,AlphaX,AlphaY,BetaX,BetaY,DeltaAngle'
