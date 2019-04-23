@@ -49,13 +49,13 @@ def error_exit(msg, f = None, lno = None):
 machine_stack = collections.OrderedDict()
 
 def parse_stack_num(stk_str):
-    if stk_str in [ str(i) for i in list(range(1, 29)) + list(range(60, 99)) ]:
+    if stk_str in [ str(i) for i in list(range(1, 30)) + list(range(60, 99)) ]:
         snum = int(stk_str)
         for pname in machine_stack:
             if snum == machine_stack[pname][0]:
                 raise ValueError(f"stack {snum} already contains part {pname}")
         return snum
-    raise ValueError("stack number must within [1,60]")
+    raise ValueError("stack number must be within [1,29] or [60,?]")
 
 def parse_feed(feed_str):
     if feed_str in [ '2', '4', '8', '12', '16', '24' ]:
@@ -77,7 +77,8 @@ def parse_rotation(rot_str):
 if args.stackfile:
     with open(args.stackfile) as sf:
         for lno, line in enumerate(sf):
-            if line.strip()[0] != '#':
+            line = line.strip()
+            if len(line) > 0 and line[0] != '#':
                 cols = [ col.strip() for col in line.strip().split(',') ]
                 if len(cols) < 2:
                     error_exit("too few columns (minimum 2)", sf.name, lno)
@@ -156,7 +157,7 @@ with open(args.csv) as inf:
         # check whether the part number is valid:
         num_mobj = re.match('^([A-Z]+)([0-9]+)$', part_num)
         if num_mobj is None:
-            error_exit("invalid part number", inf.name, lnum)
+            error_exit(f"invalid part number '{part_num}'", inf.name, lnum)
 
         # unambiguously identify capacitors, inductances and resistors:
         units = { 'C': 'F', 'L': 'H', 'R': 'Ohm' }

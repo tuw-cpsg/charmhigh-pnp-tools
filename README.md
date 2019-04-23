@@ -20,7 +20,8 @@ of the Charmhigh Pick-and-Place Machine
 
 * Export the position file from KiCAD by opening Pcbnew, selecting
   `File -> Fabrication Outputs -> Footprint Position (.pos) File`,
-  choosing an output directory and then clicking `Save Report File`.
+  choosing an output directory and then clicking `Generate Position File`.
+  Make sure that the output format is `CSV` and that units are in millimeters.
   Don't forget to place the auxiliary axis origin
   in one of the corners of the PCB before generating the position file.
   That corner will later be used as the board origin when placing the parts.
