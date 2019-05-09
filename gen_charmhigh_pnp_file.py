@@ -38,6 +38,10 @@ parser.add_argument('-m', '--mark', metavar='X,Y', action='append',
 parser.add_argument('-l', '--layer', metavar='{top|bottom}',
     help="specify whether the parts of the top or bottom layer shall be placed"
          " (auto-detected from the first part in the position file by default)")
+parser.add_argument('-x', '--extend', action='store_const', const=True,
+    default=False, help="extend the part name of resistors, capacitors and "
+                    "inductors (i.e. part numbers with an R, C or L) with the "
+                    "corresponding unit (i.e. Ohm for R, F for C and H for L)")
 args = parser.parse_args()
 
 def error_exit(msg, f = None, lno = None):
@@ -160,10 +164,11 @@ with open(args.csv) as inf:
             error_exit(f"invalid part number '{part_num}'", inf.name, lnum)
 
         # unambiguously identify capacitors, inductances and resistors:
-        units = { 'C': 'F', 'L': 'H', 'R': 'Ohm' }
-        if num_mobj.group(1) in units:
-            if re.match('^[0-9]+[GMkmunpf]?[0-9]*$', part_name):
-                part_name += units[part_num[0]]
+        if args.extend:
+            units = { 'C': 'F', 'L': 'H', 'R': 'Ohm' }
+            if num_mobj.group(1) in units:
+                if re.match('^[0-9]+\.?[0-9]*[GMkmunpf]?[0-9]*$', part_name):
+                    part_name += units[part_num[0]]
 
         # check whether this part belongs to the top or bottom layer:
         if part_layer != 'top' and part_layer != 'bottom':
