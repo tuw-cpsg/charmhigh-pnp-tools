@@ -191,7 +191,7 @@ with open(args.csv) as inf:
 parts.sort(key=lambda tup: tup[4]) # same order as in 'machine_stack'
 
 # inform the user about parts in the machine stack which are not used:
-for p in set(machine_stack) - set([ p[1] for p in parts ]):
+for p in sorted(set(machine_stack) - set([ p[1] for p in parts ])):
     print(f"\x1b[34mInfo: part {p} in the machine stack is not used\x1b[0m")
 
 ################################################################################
